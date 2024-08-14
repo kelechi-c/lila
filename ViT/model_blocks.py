@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from torch import nn
 from torch.nn import functional as func_nn
-from ViT.utils import config
+from .utils import config
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 
@@ -83,7 +83,7 @@ class MultiSelfAttention(nn.Module):
         return x
 
 
-class ViTEncoder(nn.Module):
+class ViTEncoderBlock(nn.Module):
     def __init__(self, embed_dim):
         super().__init__()
         self.attn_block = MultiSelfAttention()
@@ -107,18 +107,24 @@ class ViTEncoder(nn.Module):
         return x
 
 
-class ViTBlock(nn.Module):
-    def __init__(self, embed_dim, hidden_dim, patch_size, num_layers=6):
+class ViT(nn.Module):
+    def __init__(
+        self, embed_dim: int, hidden_dim: int, num_layers=6, classes: int = 10
+    ):
         super().__init__()
 
-        self.transformer_block = nn.Sequential(
-            *[ViTEncoder])  # ViTEncoder(embed_dim)
-
-        self.mlp_layer = nn.Sequential(
-            nn.Linear(768, hidden_dim), nn.GELU(), nn.Linear(hidden_dim, 768)
+        self.patch_embedding = PatchEmbedding()  # to patchify/tokenize images
+        # multilayer transformer block
+        self.transformer_encoder = nn.Sequential(
+            *[ViTEncoderBlock(embed_dim) for _ in range(num_layers)]
         )
 
+        self.ff_layer = nn.Linear(embed_dim, classes)
+
     def forward(self, x: torch.Tensor):
-        x = self.patch_layer(x)
+        x = self.patch_embedding(x)
+
+        x = self.transformer_encoder(x)
+        x = self.ff_layer(x[:, 0, :])
 
         return x
