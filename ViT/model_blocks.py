@@ -1,25 +1,10 @@
 import torch
 import numpy as np
 from torch import nn
+from torch.nn import functional as func_nn
 from ViT.utils import config
-from einops import repeat
+from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
-
-
-class Patchify(nn.Module):
-    def __init__(self, patches=16):
-        super().__init__()
-        self.patch_size = patches
-        self.patch_module = nn.Unfold(kernel_size=patches, stride=patches)
-
-    def forward(self, x: torch.Tensor):
-        batch_s, ch, _, _ = x.shape
-
-        x = self.patch_module(x)
-        x = x.view(batch_s, ch, self.patch_size, self.patch_size, -1)
-        x = x.permute(0, 4, 1, 2, 3)
-
-        return x
 
 
 def pos_embedding(seq_len, embed_dim=config.embed_dim):
@@ -39,7 +24,6 @@ class PatchEmbedding(nn.Module):
     def __init__(
         self,
         embed_dim=config.embed_dim,
-        hidden_dim=config.hidden_dim,
         in_channels=3,
         img_size=224,
         patch_size=config.patch_size,
@@ -50,9 +34,6 @@ class PatchEmbedding(nn.Module):
                 in_channels, embed_dim, kernel_size=patch_size, stride=patch_size
             ),
             Rearrange("b e (h) (w) -> b (h w) e"),
-        )
-        self.mlp_layer = nn.Sequential(
-            nn.Linear(768, hidden_dim), nn.GELU(), nn.Linear(hidden_dim, 768)
         )
 
         self.cls_token = nn.Parameter(torch.rand(1, 1, embed_dim))
@@ -69,6 +50,35 @@ class PatchEmbedding(nn.Module):
 
         x = torch.cat([img_patches, cls_token], dim=1)
         x = x + self.pos_embed
+
+        return x
+
+
+class MultiSelfAttention(nn.Module):
+    def __init__(self, embed_dim: int = 768, num_heads: int = 12, droprate=0.1):
+        super().__init__()
+        self.num_heads = num_heads
+        self.embed_dim = embed_dim
+
+        self.query = nn.Linear(embed_dim, embed_dim)
+        self.key = nn.Linear(embed_dim, embed_dim)
+        self.value = nn.Linear(embed_dim, embed_dim)
+
+        self.drop = nn.Dropout(droprate)
+
+    def forward(self, x):
+        q = rearrange(self.query(x), "b n (h e) -> b h n e", h=self.num_heads)
+        k = rearrange(self.key(x), "b n (h e) -> b h n e", h=self.num_heads)
+        v = rearrange(self.value(x), "b n (h e) -> b h n e", h=self.num_heads)
+
+        attn_weight = q @ k.transpose(3, 2) / self.num_heads**0.5
+
+        attn_score = func_nn.softmax(attn_weight)
+
+        attn_x = self.drop(attn_score)
+
+        x = attn_x @ v
+        x = rearrange(self.value(x), "b h n e -> b n (h e)", h=self.num_heads)
 
         return x
 

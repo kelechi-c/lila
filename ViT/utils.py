@@ -9,6 +9,7 @@ class config:
     batch_size = 32
     embed_dim = 768
     hidden_dim = 3072
+    att_heads = 12
     patch_size = 16
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     dataset_id = ""
