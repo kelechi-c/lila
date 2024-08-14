@@ -66,7 +66,7 @@ class MultiSelfAttention(nn.Module):
 
         self.drop = nn.Dropout(droprate)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         q = rearrange(self.query(x), "b n (h e) -> b h n e", h=self.num_heads)
         k = rearrange(self.key(x), "b n (h e) -> b h n e", h=self.num_heads)
         v = rearrange(self.value(x), "b n (h e) -> b h n e", h=self.num_heads)
@@ -83,10 +83,37 @@ class MultiSelfAttention(nn.Module):
         return x
 
 
-class ViTBlock(nn.Module):
-    def __init__(self, img_size, embed_dim, hidden_dim, patch_size):
+class ViTEncoder(nn.Module):
+    def __init__(self, embed_dim):
         super().__init__()
-        self.patch_layer = PatchEmbedding()
+        self.attn_block = MultiSelfAttention()
+
+        self.feed_forward = nn.Sequential(
+            nn.LayerNorm(embed_dim),
+            nn.Linear(embed_dim, 4 * embed_dim),
+            nn.GELU(),
+            nn.Linear(4 * embed_dim, embed_dim),
+        )
+
+        self.dropout = nn.Dropout(0.1)
+        self.layernorm = nn.LayerNorm(embed_dim)
+
+    def forward(self, x: torch.Tensor):
+        input = x
+        x = self.layernorm(x)
+        x = input + self.attn_block(x)
+        x = x + self.drop(self.feed_forward(x))
+
+        return x
+
+
+class ViTBlock(nn.Module):
+    def __init__(self, embed_dim, hidden_dim, patch_size, num_layers=6):
+        super().__init__()
+
+        self.transformer_block = nn.Sequential(
+            *[ViTEncoder])  # ViTEncoder(embed_dim)
+
         self.mlp_layer = nn.Sequential(
             nn.Linear(768, hidden_dim), nn.GELU(), nn.Linear(hidden_dim, 768)
         )
