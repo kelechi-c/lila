@@ -1,19 +1,16 @@
-import numpy
-import random
 import torch
-
-
-def seed_everything(seed=22):
-    numpy.random.seed(seed)
-    torch.manual_seed(seed)
-    random.seed(seed)
-    torch.backends.cudnn.deterministic = True
+from torch import nn
+from .utils import config
+from einops.layers.torch import Rearrange
+from einops import repeat
+import numpy as np
+from timm.models.vision_transformer import PatchEmbed
 
 
 def random_shuffle(image: torch.Tensor, mask_ratio=0.75):
     B, L, D = image.shape
 
-    keep_len = int((L / 4))
+    keep_len = int((L * (1 - mask_ratio)))
     noise = torch.rand(B, L, device=image.device)  # random masking noise
 
     shuffle_ids = torch.argsort(noise, dim=1)
@@ -31,3 +28,48 @@ def random_shuffle(image: torch.Tensor, mask_ratio=0.75):
     mask = torch.gather(mask, dim=1, index=restore_ids)  # masks
 
     return x, mask, restore_ids
+
+
+class PatchEmbed(nn.Module):
+    def __init__(
+        self,
+        embed_dim=config.embed_dim,
+        in_channels=3,
+        img_size=224,
+        patch_size=config.patch_size,
+    ):
+        super().__init__()
+        self.patch_projection = nn.Sequential(
+            nn.Conv2d(
+                in_channels, embed_dim, kernel_size=patch_size, stride=patch_size
+            ),
+            Rearrange("b e (h) (w) -> b (h w) e"),
+        )
+
+        self.cls_token = nn.Parameter(torch.rand(1, 1, embed_dim))
+        self.pos_embed = nn.Parameter(
+            torch.zeros(1, num_patches, embed_dim), requires_grad=False
+        )
+
+    def _pos_embedding(self, seq_len, embed_dim=config.embed_dim):
+        embeds = torch.ones(seq_len, embed_dim)
+        for k in range(seq_len):
+            for v in range(embed_dim):
+                embeds[k][v] = (
+                    np.sin(k / pow(10000, v / embed_dim))
+                    if v % 2 == 0
+                    else np.cos(k / pow(10000, v - 1 / embed_dim))
+                )
+
+        return embeds
+
+    def forward(self, x: torch.Tensor):
+        bs, _, _, _ = x.shape
+        img_patches = self.patchlayer(x)
+
+        cls_token = repeat(self.cls_token, "() s e -> b s e", b=bs)
+
+        x = torch.cat([img_patches, cls_token], dim=1)
+        x = x + self.pos_embed
+
+        return x
