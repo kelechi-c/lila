@@ -83,7 +83,33 @@ class MaskedAutoencoder(nn.Module):
 
         if isinstance(ml, nn.LayerNorm):
             nn.init.constant_(ml.weight, 0)
-            nn.init.constant_(ml.bias, 0)
+            nn.init.constant_(ml.bias, 1.0)
+
+    def random_shuffle(image: torch.Tensor, mask_ratio=0.75):
+        B, L, D = image.shape
+
+        keep_len = int((L * (1 - mask_ratio)))
+        noise = torch.rand(B, L, device=image.device)  # random masking noise
+
+        # get indexes for shuffled tokens
+        shuffle_ids = torch.argsort(noise, dim=1)
+        restore_ids = torch.argsort(noise, dim=1)
+        retain_ids = shuffle_ids[:, :keep_len]  # remaining pixel ids
+
+        x = torch.gather(
+            image, dim=1, index=retain_ids.unsqueeze(-1).repeat(1, 1, D)
+        )  # remaining image pixels/tokens
+
+        # get binary mask
+        mask = torch.ones([B, L], device=image.device)
+        mask[:, :keep_len] = 0
+
+        mask = torch.gather(mask, dim=1, index=restore_ids)  # masks
+
+        return x, mask, restore_ids
+
+    def patch_image(self, img):
+        p = self.patch_embed.patch_size[0]
 
     def forward(self, x: torch.Tensor):
         return x
