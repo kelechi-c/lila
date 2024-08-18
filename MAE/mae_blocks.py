@@ -4,7 +4,6 @@ from .utils import config
 from einops.layers.torch import Rearrange
 from einops import repeat
 import numpy as np
-from timm.models.vision_transformer import PatchEmbed
 
 
 def random_shuffle(image: torch.Tensor, mask_ratio=0.75):
@@ -13,6 +12,7 @@ def random_shuffle(image: torch.Tensor, mask_ratio=0.75):
     keep_len = int((L * (1 - mask_ratio)))
     noise = torch.rand(B, L, device=image.device)  # random masking noise
 
+    # get indexes for shuffled tokens
     shuffle_ids = torch.argsort(noise, dim=1)
     restore_ids = torch.argsort(noise, dim=1)
     retain_ids = shuffle_ids[:, :keep_len]  # remaining pixel ids

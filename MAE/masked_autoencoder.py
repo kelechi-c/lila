@@ -1,3 +1,4 @@
+from numpy import shape
 import torch
 from torch import nn
 from timm.models.vision_transformer import Block, PatchEmbed
@@ -108,8 +109,38 @@ class MaskedAutoencoder(nn.Module):
 
         return x, mask, restore_ids
 
-    def patch_image(self, img):
-        p = self.patch_embed.patch_size[0]
+    def encoder(self, x: torch.Tensor):  # encoder for featur extraction/learning
+        x = self.patch_embed(x)
+
+        cls_token = x[:, :1, :]
+        x = x[:, 1:, :]
+
+        x, mask, restore_ids = self.random_shuffle(x)
+
+        x = torch.cat((cls_token, x), dim=1)
+        x = self.encoder_layers(x)
+
+        return x
+
+    def decoder(self, x: torch.Tensor, restore_ids):  # decoder for reconstructon
+        x = self.decoder_embedding(x)
+
+        mask_tokens = self.mask_token.repeat(
+            x.shape[0], self.mask_token.shape[0] + 1 - x.shape[1], 1
+        )
+
+        masked_x = torch.cat([x[:, 1:, :], mask_tokens], dim=1)
+        masked_x = torch.gather(
+            masked_x, dim=1, index=restore_ids.unsqueeze(-1).repeat(1, 1, x.shape[2])
+        )
+        x = torch.cat([x[:, :1, :], masked_x], dim=1)
+
+        x = x + self.decoder_pos_embed
+
+        x = self.decoder_layers(x)
+        x = self.output_layer(x)
+
+        return x
 
     def forward(self, x: torch.Tensor):
         return x
