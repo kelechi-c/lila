@@ -1,3 +1,4 @@
+from einops.layers.torch import Rearrange
 from numpy import shape
 import torch
 from torch import nn
@@ -20,6 +21,13 @@ class MaskedAutoencoder(nn.Module):
         self.patch_embed = PatchEmbed(
             img_size, patch_size, in_channels, embed_dim
         )  # initialize patchembed layer with custom configs
+
+        self.projection = nn.Sequential(
+            nn.Conv2d(
+                in_channels, embed_dim, kernel_size=patch_size, stride=patch_size
+            ),
+            Rearrange("b e (h) (w) -> b (h w) e"),
+        )
 
         # encoder section blocks
 
@@ -109,7 +117,7 @@ class MaskedAutoencoder(nn.Module):
 
         return x, mask, restore_ids
 
-    def encoder(self, x: torch.Tensor):  # encoder for featur extraction/learning
+    def encoder(self, x: torch.Tensor):  # encoder for feature extraction/learning
         x = self.patch_embed(x)
 
         cls_token = x[:, :1, :]
@@ -141,6 +149,15 @@ class MaskedAutoencoder(nn.Module):
         x = self.output_layer(x)
 
         return x
+
+    def loss_fn(self, x, pred, mask):
+        target = self.projection(x)
+        loss = (pred - target) ** 2
+        loss = loss.mean(dim=-1)
+
+        loss = (loss * mask).sum() / mask.sum()
+
+        return loss
 
     def forward(self, x: torch.Tensor):
         return x
