@@ -1,5 +1,4 @@
 from einops.layers.torch import Rearrange
-from numpy import shape
 import torch
 from torch import nn
 from timm.models.vision_transformer import Block, PatchEmbed
@@ -159,5 +158,11 @@ class MaskedAutoencoder(nn.Module):
 
         return loss
 
-    def forward(self, x: torch.Tensor):
-        return x
+    def forward(self, x_img: torch.Tensor):
+        x, mask, restore_ids = self.encoder(x_img)
+
+        pred = self.decoder(x, restore_ids)
+
+        loss = self.loss_fn(x, pred, mask)
+
+        return pred, loss, mask
