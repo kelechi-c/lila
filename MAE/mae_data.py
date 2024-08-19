@@ -3,12 +3,6 @@ from torch.utils.data import DataLoader, IterableDataset
 from datasets import load_dataset
 
 
-class config:
-    dataset_id = ""
-    batch_size = 32
-    split = 10000
-
-
 hfdata = load_dataset(config.dataset_id, split="train", streaming=True)
 hfdata = hfdata.take(config.split)
 
