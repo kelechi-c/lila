@@ -5,6 +5,7 @@ import numpy as np
 
 class config:
     lr = 1e-4
+    epoch_count = 50
     image_size = 224
     batch_size = 32
     embed_dim = 768
@@ -12,9 +13,13 @@ class config:
     att_heads = 12
     patch_size = 16
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    dataset_id = ""
+    dataset_id = "visual-layer/imagenet-1k-vl-enriched"
     split = 5000
     dtype = torch.float32
+    model_file = "vit_mini.pth"
+    safetensor_file = "vit_mini.safetensors"
+    model_outpath = "vit_mini"
+    grad_acc_step = 4
 
 
 def read_image(img):
