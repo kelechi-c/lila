@@ -17,7 +17,7 @@ def pos_embedding(seq_len, embed_dim=config.embed_dim):
                 else np.cos(k / pow(10000, v - 1 / embed_dim))
             )
 
-    return torch.tensor(embeds)
+    return embeds
 
 
 class PatchEmbedding(nn.Module):

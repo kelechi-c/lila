@@ -1,6 +1,8 @@
 import torch
 from torch import nn
+from ViT.utils import config
 from .model_blocks import MultiSelfAttention, PatchEmbedding
+from huggingface_hub import login, PyTorchModelHubMixin
 
 
 class ViTEncoderBlock(nn.Module):
@@ -27,8 +29,13 @@ class ViTEncoderBlock(nn.Module):
         return x
 
 
-class ViT(nn.Module):
-    def __init__(self, embed_dim: int, num_layers=6, classes: int = 10):
+class ViT(
+    nn.Module,
+    PyTorchModelHubMixin,
+    pipeline_tag="image-classification",
+    license="apache-2.0",
+):
+    def __init__(self, embed_dim: int = 768, num_layers=6, classes: int = 1000):
         super().__init__()
 
         self.patch_embedding = PatchEmbedding()  # to patchify/tokenize images
@@ -41,8 +48,15 @@ class ViT(nn.Module):
 
     def forward(self, x: torch.Tensor):
         x = self.patch_embedding(x)
-
         x = self.transformer_encoder(x)
+
         x = self.ff_layer(x[:, 0, :])
 
         return x
+
+
+vit = ViT().to(config.dtype).to(config.device)
+
+vit.save_pretrained("vit4HAR")
+# push to the hub
+vit.push_to_hub("tensorkelechi/vit4HAR")
