@@ -1,8 +1,16 @@
+import torch
+import wandb
+import os
+import gc
 from torch import optim
 from torch import nn
-from torch.cuda.amp import GradScaler, autocast
-import wandb
+from torch.cuda.amp import GradScaler
 from tqdm.auto import tqdm
+from safetensors.torch import save_model
+from .utils import config, count_params
+from .vit import vit
+from .image_data import train_loader
+
 
 criterion = nn.CrossEntropyLoss()  # loss function
 optimizer = optim.AdamW(params=vit.parameters(), lr=config.lr)
@@ -14,11 +22,9 @@ print(param_count)
 
 epochs = config.epoch_count
 
-user_secrets = UserSecretsClient()
-wandbkey = user_secrets.get_secret("wandb2")
 
 # initilaize wandb
-wandb.login(key=wandbkey)
+wandb.login()
 train_run = wandb.init(project="vit_mini", name="vit_1")
 wandb.watch(vit, log_freq=100)
 
