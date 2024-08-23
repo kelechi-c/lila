@@ -13,8 +13,8 @@ class config:
     att_heads = 12
     patch_size = 16
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    dataset_id = "visual-layer/imagenet-1k-vl-enriched"
     split = 5000
+    dataset_id = "visual-layer/imagenet-1k-vl-enriched"
     dtype = torch.float32
     model_file = "vit_mini.pth"
     safetensor_file = "vit_mini.safetensors"
@@ -29,3 +29,9 @@ def read_image(img):
     img = img / 255.0
 
     return img
+
+
+def count_params(model: torch.nn.Module):
+    p_count = sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+    return p_count

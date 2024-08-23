@@ -3,7 +3,7 @@ from .utils import read_image, config
 from torch.utils.data import DataLoader, IterableDataset
 from datasets import load_dataset
 
-dataset_id = ""
+dataset_id = "visual-layer/imagenet-1k-vl-enriched"
 
 hfdata = load_dataset(dataset_id, plit="train", stream=True)
 
